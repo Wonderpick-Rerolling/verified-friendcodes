@@ -12,7 +12,7 @@ MyGui.Add("DropDownList", "vSelectedBall w200", ballTypes)
 MyGui["SelectedBall"].Text := "pokeball"
 
 ; Add button to fetch and filter data
-MyGui.Add("Button", "Default w200", "Start Adding Friends").OnEvent("Click", LoadWhitelistedFriendCodes)
+MyGui.Add("Button", "Default w200", "Start Adding Friends").OnEvent("Click", Start)
 
 ; Add status text
 statusText := MyGui.Add("Text", "w200", "Ready to load friend codes...")
@@ -20,45 +20,57 @@ statusText := MyGui.Add("Text", "w200", "Ready to load friend codes...")
 ; Show the GUI
 MyGui.Show()
 
-Loop {
-    ; Wait for the GUI to close
-    if (MyGui.WaitForClose() = "Escape")
-        break
-    ControlClick 140 515, "gp"
-    Sleep 1000
-    ControlClick 40 468, "gp"
-    Sleep 1000
-    ControlClick 247 468, "gp"
-    Sleep 1000
+global winName := "4"
 
-    Loop {
-        if (PixelGetColor(140, 515) = 0x5CE2EA) {
-            ControlClick 162 180, "gp"
-            Sleep 1000
-        } else {
-            break
-        }
-    }
-
-    Sleep 60000
-}
-
-AddFriends() {
+Start(*) {
+    statusText.Value := "Loading friend codes..."
     LoadBlacklistedFriendCodes()
     LoadWhitelistedFriendCodes()
-    ;; TODO: add android inputs
-    ;; TODO: add ocr to read friend code
+    statusText.Value := "Friend codes loaded. Starting to add friends..."
 
-    if (CheckFriendCode("1234567890")) {
-        ;;TODO: add friend
+    Loop {
+        ControlClick "x140 y515", winName
+        Sleep 2000
+        ControlClick "x140 y515", winName
+        Sleep 2000
+        ControlClick "x40 y468", winName
+        Sleep 1000
+        ControlClick "x247 y468", winName
+        statusText.Value := "Searching for friend requests..."
+        Sleep 500
+
+        Loop {
+            if (PixelGetColor(170, 190) = 0xEEF6F9) {
+
+                statusText.Value := "Found, friend requests..."
+                ControlClick "x162 y180", winName
+                Sleep 1000
+
+                statusText.Value := "OCRing friendcode ..."
+                ocrResult := OCR.FromWindow(winName,,2,{X:0, Y:0, W:500, H:100, onlyClientArea: 1})
+                if (CheckFriendCode(Trim(ocrResult.Text))) {
+
+                    statusText.Value := "User is whitelisted; Accepting friend request"
+                    ; Accept friend request
+                    ControlClick "x180 y412", winName
+                    Sleep 500
+                } else {
+                    statusText.Value := "User is not whitelisted, or blacklisted. Rejecting friend request"
+                    ; Delete friend request
+                    ControlClick "x90 y412", winName
+                    Sleep 500
+                }
+
+                ControlClick "x140 y500", winName
+                Sleep 2000
+            } else {
+                statusText.Value := "No friend requests found, waiting 1 minute..."
+                break
+            }
+        }
+
+        Sleep 60000
     }
-    else {
-        ;; TODO: delete friend request
-    }
-
-    ;; Go back to friend requests screen
-
-    Sleep 1000
 }
 
 CheckFriendCode(friendCode) {
