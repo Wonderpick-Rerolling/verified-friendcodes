@@ -1,4 +1,5 @@
 #Requires AutoHotkey v2.0
+#include OCR.ahk
 
 ; Create the GUI
 MyGui := Gui()
@@ -23,6 +24,23 @@ Loop {
     ; Wait for the GUI to close
     if (MyGui.WaitForClose() = "Escape")
         break
+    ControlClick 140 515, "gp"
+    Sleep 1000
+    ControlClick 40 468, "gp"
+    Sleep 1000
+    ControlClick 247 468, "gp"
+    Sleep 1000
+
+    Loop {
+        if (PixelGetColor(140, 515) = 0x5CE2EA) {
+            ControlClick 162 180, "gp"
+            Sleep 1000
+        } else {
+            break
+        }
+    }
+
+    Sleep 60000
 }
 
 AddFriends() {
