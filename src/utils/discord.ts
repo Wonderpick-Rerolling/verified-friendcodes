@@ -4,6 +4,22 @@ import { REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v10';
 import { AllowedUser, DiscordAssignedRole } from '../database';
 
+type DiscordUser = {
+  roles: string[];
+  user: { id: string; username: string };
+};
+
+type DiscordRole = {
+  id: string;
+  name: string;
+};
+
+type DiscordMessage = {
+  id: string;
+  content: string;
+  author: { id: string; username: string };
+};
+
 export async function verifyDiscordRequest(request: any, env: Env) {
   const signature = request.headers.get('x-signature-ed25519');
   const timestamp = request.headers.get('x-signature-timestamp');
@@ -16,7 +32,7 @@ export async function verifyDiscordRequest(request: any, env: Env) {
     return { isValid: false };
   }
 
-  return { interaction: JSON.parse(body), isValid: true };
+  return { request: JSON.parse(body), isValid: true };
 }
 
 const discordServerToRoleValues: { [key: string]: { [key: string]: number } } =
@@ -62,12 +78,6 @@ export function hasValidRole(
 
   return maxRoleValue >= minimumRoleValue;
 }
-
-type DiscordMessage = {
-  id: string;
-  content: string;
-  author: { id: string; username: string };
-};
 
 export const fetchAllMessagesFromChannel = async (
   botToken: string,
@@ -141,16 +151,6 @@ export const fetchAllMessagesFromChannel = async (
   return channelMessages.flatMap(messageToAllowedUser);
 };
 
-type DiscordUser = {
-  roles: string[];
-  user: { id: string; username: string };
-};
-
-type DiscordRole = {
-  id: string;
-  name: string;
-};
-
 export const fetchUsersToRoles = async (
   botToken: string,
   serverId: string
@@ -180,3 +180,23 @@ export const fetchUsersToRoles = async (
     });
   });
 };
+
+export const fetchServerName = async (botToken: string, serverId: string) => {
+  const discordAPI = new REST({ version: '10' }).setToken(botToken);
+  const route = Routes.guild(serverId);
+  return discordAPI
+    .get(route)
+    .then(server => (server as { name: string }).name);
+};
+
+export const ID_CHANNEL_COMMAND = {
+  name: 'channel',
+  description: 'Select this channel for the bot to listen to.'
+};
+
+export const INVITE_COMMAND = {
+  name: 'invite',
+  description: 'Get the invite link for the bot.'
+};
+
+export const botCommands = [ID_CHANNEL_COMMAND, INVITE_COMMAND];

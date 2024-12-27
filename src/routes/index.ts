@@ -1,8 +1,18 @@
 import { AutoRouter } from 'itty-router/AutoRouter';
 import { Env } from '..';
-import { verifyDiscordRequest } from '../utils/discord';
-import { InteractionResponseType, InteractionType } from 'discord-interactions';
-import { getAllowedUsers } from '../database';
+import {
+  fetchServerName,
+  ID_CHANNEL_COMMAND,
+  INVITE_COMMAND,
+  verifyDiscordRequest
+} from '../utils/discord';
+import {
+  InteractionResponseFlags,
+  InteractionResponseType,
+  InteractionType
+} from 'discord-interactions';
+import { addDiscordServer, getAllowedUsers } from '../database';
+import { server } from 'typescript';
 
 export const router = AutoRouter();
 
@@ -23,7 +33,10 @@ router.get('/bot', async (_, env: Env) => {
 });
 
 router.post('/bot', async (request, env: Env) => {
-  const { isValid, interaction } = await verifyDiscordRequest(request, env);
+  const { isValid, request: interaction } = await verifyDiscordRequest(
+    request,
+    env
+  );
   if (!isValid || !interaction) {
     return new Response('Bad request signature.', { status: 401 });
   }
@@ -36,8 +49,48 @@ router.post('/bot', async (request, env: Env) => {
 
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
     switch (interaction.data.name.toLowerCase()) {
-      case 'test': {
-        return new JsonResponse({});
+      case ID_CHANNEL_COMMAND.name.toLowerCase(): {
+        const channelId = interaction.channel_id;
+        const serverId = interaction.guild_id;
+        const serverName = await fetchServerName(env.DISCORD_TOKEN, serverId);
+
+        if (!serverId || !channelId || !serverName) {
+          console.error('Server ID or Channel ID not found.', interaction);
+          return new JsonResponse(
+            { error: 'Server ID or Channel ID not found.' },
+            { status: 400 }
+          );
+        }
+        console.log(
+          `Registering channel ${channelId} for server: ${serverName}, ID: ${serverId}`
+        );
+
+        const server = {
+          id: serverId,
+          name: serverName,
+          roles_channel_id: channelId
+        };
+
+        await addDiscordServer(env.DB, server);
+
+        console.log('Channel registered as ID channel.');
+        return new JsonResponse({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: 'Channel registered as ID channel.'
+          }
+        });
+      }
+      case INVITE_COMMAND.name.toLowerCase(): {
+        const applicationId = env.DISCORD_APPLICATION_ID;
+        const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${applicationId}&scope=applications.commands`;
+        return new JsonResponse({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: INVITE_URL,
+            flags: InteractionResponseFlags.EPHEMERAL
+          }
+        });
       }
       default:
         return new JsonResponse({ error: 'Unknown Type' }, { status: 400 });

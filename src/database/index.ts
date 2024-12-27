@@ -199,10 +199,16 @@ export const addDiscordServer = async (
   db: D1Database,
   discord_server: DiscordServer
 ): Promise<void> => {
-  const statement = db.prepare(
-    'INSERT INTO discord_servers (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING'
-  );
-  statement.bind(discord_server.id, discord_server.name);
+  const statement = db
+    .prepare(
+      'INSERT INTO discord_servers (id, name, roles_channel_id) VALUES (?, ?, ?) ON CONFLICT (id) DO UPDATE SET roles_channel_id = ?'
+    )
+    .bind(
+      discord_server.id,
+      discord_server.name,
+      discord_server.roles_channel_id,
+      discord_server.roles_channel_id
+    );
   const query = await statement.run();
   if (!query.success) {
     throw new Error('Failed to add discord server.');
