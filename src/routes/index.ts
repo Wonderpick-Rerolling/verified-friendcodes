@@ -4,6 +4,7 @@ import {
   fetchServerName,
   ID_CHANNEL_COMMAND,
   INVITE_COMMAND,
+  REFRESH_COMMAND,
   verifyDiscordRequest
 } from '../utils/discord';
 import {
@@ -13,6 +14,7 @@ import {
 } from 'discord-interactions';
 import { addDiscordServer, getAllowedUsers } from '../database';
 import { server } from 'typescript';
+import { fetchMessagesAndUpdateAllowedUsers } from '../cron';
 
 export const router = AutoRouter();
 
@@ -89,6 +91,15 @@ router.post('/bot', async (request, env: Env) => {
           data: {
             content: INVITE_URL,
             flags: InteractionResponseFlags.EPHEMERAL
+          }
+        });
+      }
+      case REFRESH_COMMAND.name.toLowerCase(): {
+        await fetchMessagesAndUpdateAllowedUsers(env.DB, env.DISCORD_TOKEN);
+        return new JsonResponse({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: 'Successfully refreshed the whitelist'
           }
         });
       }

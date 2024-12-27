@@ -199,4 +199,13 @@ export const INVITE_COMMAND = {
   description: 'Get the invite link for the bot.'
 };
 
-export const botCommands = [ID_CHANNEL_COMMAND, INVITE_COMMAND];
+export const REFRESH_COMMAND = {
+  name: 'refresh',
+  description: "Refresh the bot's cache."
+};
+
+export const botCommands = [
+  ID_CHANNEL_COMMAND,
+  INVITE_COMMAND,
+  REFRESH_COMMAND
+];

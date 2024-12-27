@@ -10,7 +10,7 @@ import {
 } from '../utils/discord';
 import { Env } from '..';
 
-const fetchMessagesAndUpdateAllowedUsers = async (
+export const fetchMessagesAndUpdateAllowedUsers = async (
   db: D1Database,
   botToken: string
 ) => {
