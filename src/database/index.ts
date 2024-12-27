@@ -73,6 +73,8 @@ export const getAllowedUsers = async (
   discordServerName?: string | null,
   minimumRole?: string | null
 ): Promise<AllowedUser[]> => {
+  console.log('Fetching allowed users:', discordServerName, minimumRole);
+
   let statement: D1PreparedStatement;
   const discordServerId = discordServerName
     ? (await getDiscordServerByName(db, discordServerName)).id
@@ -94,6 +96,8 @@ export const getAllowedUsers = async (
   const allowed_users = query.results as AllowedUser[];
   if (minimumRole && minimumRole !== 'all' && discordServerId) {
     const userRoles = await getDiscordRolesByServer(db, discordServerId);
+
+    console.log('Filtering allowed users:', allowed_users, userRoles);
     return allowed_users.filter(entry =>
       hasValidRole(entry, userRoles, minimumRole)
     );
@@ -118,8 +122,9 @@ const getDiscordServerByName = async (
   db: D1Database,
   discordServerName: string
 ) => {
-  const statement = db.prepare('SELECT * FROM discord_servers WHERE name = ?');
-  statement.bind(discordServerName);
+  const statement = db
+    .prepare('SELECT * FROM discord_servers WHERE name = ?')
+    .bind(discordServerName);
   const query = await statement.run();
   if (query.error || !query.success) {
     throw new Error('Failed to fetch discord_server.');
@@ -143,34 +148,29 @@ const getDiscordRolesByServer = async (db: D1Database, serverId: string) => {
 export const updateAllowedUsers = async (
   db: D1Database,
   entries: AllowedUser[],
-  discord_server_name: string
+  discord_server_id: string
 ): Promise<void> => {
-  let statement = db
-    .prepare('SELECT id FROM discord_servers WHERE name = ?')
-    .bind(discord_server_name);
-  const discord_server_id = (await statement.first()['id']) ?? null;
-
-  if (!discord_server_id) {
-    throw new Error(`Discord server ${discord_server_name} not found.`);
-  }
-
   db.prepare('DELETE FROM allowed_users WHERE discord_server_id = ?')
     .bind(discord_server_id)
     .run();
 
   for (const entry of entries) {
-    statement = db.prepare(`INSERT INTO allowed_users
+    console.log('Adding allowed user:', entry);
+
+    let statement = db
+      .prepare(
+        `INSERT INTO allowed_users
       (friendcode, ign, discord_username, discord_server_id) VALUES (?, ?, ?, ?)
-      ON CONFLICT (friendcode, discord_server_id) DO NOTHING`);
+      ON CONFLICT (friendcode, discord_server_id) DO NOTHING`
+      )
+      .bind(
+        entry.friendcode,
+        entry.ign,
+        entry.discord_username,
+        discord_server_id
+      );
 
-    statement.bind(
-      entry.friendcode,
-      entry.ign,
-      entry.discord_username,
-      discord_server_id
-    );
-
-    statement.run();
+    await statement.run();
   }
 };
 
@@ -184,12 +184,14 @@ export const updateAssignedRoles = async (
     .run();
 
   for (const role of roles) {
-    const statement = db.prepare(`INSERT INTO discord_roles
+    const statement = db
+      .prepare(
+        `INSERT INTO discord_roles
       (role_id, role_name, username, server_id) VALUES (?, ?, ?, ?)
-      ON CONFLICT (role_id, server_id) DO NOTHING`);
-
-    statement.bind(role.id, role.role_name, role.username, role.server_id);
-    statement.run();
+      ON CONFLICT (role_id, server_id) DO NOTHING`
+      )
+      .bind(role.id, role.role_name, role.username, role.server_id);
+    await statement.run();
   }
 };
 

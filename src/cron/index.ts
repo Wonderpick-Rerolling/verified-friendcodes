@@ -1,6 +1,5 @@
 import { D1Database } from '@cloudflare/workers-types/experimental';
 import {
-  AllowedUser,
   getDiscordServers,
   updateAllowedUsers,
   updateAssignedRoles
@@ -17,20 +16,23 @@ const fetchMessagesAndUpdateAllowedUsers = async (
 ) => {
   const discordServers = await getDiscordServers(db);
   for (const server of discordServers) {
-    console.log(
-      `Fetching messages for server: ${server.name}, channelID: ${server.roles_channel_id}`
-    );
+    console.log(`Updating server: ${server.name}`);
 
+    console.log(`Fetching roles`);
     const usersToRoles = await fetchUsersToRoles(botToken, server.id);
+    console.log(`Assigning roles`, usersToRoles);
     await updateAssignedRoles(db, usersToRoles, server.id);
 
+    console.log(`Fetching messages at channelID: ${server.roles_channel_id}`);
     const allowedUsers = await fetchAllMessagesFromChannel(
       botToken,
       server.roles_channel_id,
       server.id
     );
 
+    console.log(`Updating allowed users`, allowedUsers);
     await updateAllowedUsers(db, allowedUsers, server.id);
+    console.log(`----------------`);
   }
 };
 

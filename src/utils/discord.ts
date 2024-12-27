@@ -26,6 +26,12 @@ const discordServerToRoleValues: { [key: string]: { [key: string]: number } } =
       'great ball': 2,
       'ultra ball': 3,
       'master ball': 4
+    },
+    '1321259990429863936': {
+      'poke ball': 1,
+      'great ball': 2,
+      'ultra ball': 3,
+      'master ball': 4
     }
   };
 
@@ -46,13 +52,13 @@ export function hasValidRole(
   let maxRoleValue = 0;
 
   for (const role of userRoles) {
-    const roleValue = roleValues[role.role_name];
+    const roleValue = roleValues[role.role_name.toLowerCase()];
     if (roleValue && roleValue > maxRoleValue) {
       maxRoleValue = roleValue;
     }
   }
 
-  const minimumRoleValue = roleValues[minimumRole] || 0;
+  const minimumRoleValue = roleValues[minimumRole.toLowerCase()] || 0;
 
   return maxRoleValue >= minimumRoleValue;
 }

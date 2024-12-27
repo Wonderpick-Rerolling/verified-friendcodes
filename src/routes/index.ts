@@ -36,7 +36,7 @@ router.post('/bot', async (request, env: Env) => {
 
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
     switch (interaction.data.name.toLowerCase()) {
-      case 'false': {
+      case 'test': {
         return new JsonResponse({});
       }
       default:
