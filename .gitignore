@@ -1,6 +1,7 @@
 .env
 .wrangler
 .dev.vars
+coverage/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
