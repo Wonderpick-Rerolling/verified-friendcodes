@@ -6,10 +6,13 @@ MyGui := Gui()
 MyGui.Title := "Pokemon Friend Code Filter"
 
 ; Add dropdown menu
-ballTypes := ["all", "pokeball", "greatball", "ultraball", "masterball"]
+ballTypes := ["all", "poke ball", "great ball", "ultra ball", "master ball", "vip"]
+servers := ["Pokemon Pocket Hunters", "Wonderpick Rerolling"]
 MyGui.Add("Text", "w200", "Select Minimum Ball Type:")
 MyGui.Add("DropDownList", "vSelectedBall w200", ballTypes)
+MyGui.Add("DropDownList", "vSelectedServer w200", servers)
 MyGui["SelectedBall"].Text := "pokeball"
+MyGui["SelectedServer"].Text := "Wonderpick Rerolling"
 
 ; Add button to fetch and filter data
 MyGui.Add("Button", "Default w200", "Start Adding Friends").OnEvent("Click", Start)
@@ -24,7 +27,6 @@ global winName := "4"
 
 Start(*) {
     statusText.Value := "Loading friend codes..."
-    LoadBlacklistedFriendCodes()
     LoadWhitelistedFriendCodes()
     statusText.Value := "Friend codes loaded. Starting to add friends..."
 
@@ -43,6 +45,12 @@ Start(*) {
             if (PixelGetColor(170, 190) = 0xEEF6F9) {
 
                 statusText.Value := "Found, friend requests..."
+                if (MyGui["SelectedBall"].Text = "all") {
+                    ControlClick "x162, y180", winName ; default accept
+                    Sleep 700
+                    continue
+                }
+
                 ControlClick "x162 y180", winName
                 Sleep 1000
 
@@ -95,48 +103,17 @@ LoadWhitelistedFriendCodes(*) {
     try {
         ; Download CSV file
         whr := ComObject("WinHttp.WinHttpRequest.5.1")
-        url := "https://raw.githubusercontent.com/Wonderpick-Rerolling/verified-friendcodes/refs/heads/main/pokemon-pocket-hunters/whitelist.csv"
+
+        minimumRole := StrReplace(MyGui["SelectedBall"].Text, " ", "%20")
+        discordServer := StrReplace(MyGui["SelectedServer"].Text, " ", "%20")
+        url := 'https://discord-bot.pokemonpockethunters.workers.dev/whitelist?minimum_role=' minimumRole '&discord_server=' discordServer
         whr.Open("GET", url, true)
         whr.Send()
         whr.WaitForResponse()
-        csvData := whr.ResponseText
-
-        ; Parse CSV and filter data
-        friendCodes := []
-        selectedBall := MyGui["SelectedBall"].Text
-
-        ; Split CSV into lines
-        lines := StrSplit(csvData, "`n", "`r")
-
-        ; Process each line
-        firstLine := true
-        for line in lines {
-            ; Skip first line (header)
-            if (firstLine) {
-                firstLine := false
-                continue
-            }
-            if (line = "") {
-                continue
-            }
-
-            ; Split line into columns
-            columns := StrSplit(line, ",")
-
-            ; Check if we have enough columns
-            if (columns.Length < 2) {
-                continue
-            }
-
-            ; Get role and friend code
-            role := Trim(columns[4])
-            friendCode := Trim(columns[1])
-
-            ; Filter based on selected ball type
-            if (selectedBall = "all" || getRoleIndex(role) >= getRoleIndex(selectedBall)) {
-                friendCodes.Push(friendCode)
-            }
-        }
+        friendCodesText := StrReplace(whr.ResponseText, "[", "")
+        friendCodesText := StrReplace(friendCodesText, "]", "")
+        friendCodesText := StrReplace(friendCodesText, '"', "")
+        friendCodes := StrSplit(friendCodesText, ",")
 
         ; Update status with count of codes found
         statusText.Value := friendCodes.Length . " friend codes loaded"
