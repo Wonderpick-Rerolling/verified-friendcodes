@@ -48,14 +48,24 @@ const discordServerToRoleValues: { [key: string]: { [key: string]: number } } =
       'great ball': 2,
       'ultra ball': 3,
       'master ball': 4
+    },
+    '1312100247861727262': {
+      verified: 1,
+      'server booster': 2,
+      'godpack contributor': 2,
+      'boulder badge': 3,
+      'cascade badge': 4,
+      moderator: 10,
+      'server owner': 99,
+      admin: 99
     }
   };
 
-export function hasValidRole(
+export const hasValidRole = (
   allowedUser: AllowedUser,
   roles: DiscordAssignedRole[],
   minimumRole: string
-): boolean {
+): boolean => {
   const userRoles = roles.filter(
     ({ username }) => username === allowedUser.discord_username
   );
@@ -77,7 +87,11 @@ export function hasValidRole(
   const minimumRoleValue = roleValues[minimumRole.toLowerCase()] || 0;
 
   return maxRoleValue >= minimumRoleValue;
-}
+};
+
+export const allowedUserToMessage = (user: AllowedUser, i: number) => {
+  return `${i + 1}) ${user.is_main ? 'Main' : 'Alt'}: ${user.ign} - ${user.friendcode}`;
+};
 
 export const fetchAllMessagesFromChannel = async (
   botToken: string,
@@ -143,7 +157,11 @@ export const fetchAllMessagesFromChannel = async (
         ign,
         friendcode,
         discord_username: message.author.username,
-        discord_server_id: serverId
+        discord_server_id: serverId,
+        is_main: true,
+        screenshot_id: '',
+        created_at: new Date().toISOString(),
+        modified_at: new Date().toISOString()
       }
     ];
   };
@@ -170,15 +188,32 @@ export const fetchUsersToRoles = async (
 
   return discordUsers.flatMap(user => {
     return user.roles.map(roleId => {
-      const roleName = roles.find(({ id }) => id === roleId)!.name;
+      const { name: roleName } = roles.find(({ id }) => id === roleId);
+      const roleValue =
+        discordServerToRoleValues[serverId][roleName.toLowerCase()];
       return {
         role_name: roleName,
+        role_value: roleValue,
         username: user.user.username,
         server_id: serverId,
         id: roleId
       };
     });
   });
+};
+
+export const fetchInteractionDetails = async (
+  discordRequest: any,
+  botToken: string
+) => {
+  const serverId = discordRequest.guild_id;
+  const serverName = await fetchServerName(botToken, serverId);
+  const { username } = discordRequest.member.user;
+  if (!serverId || !serverName || !username) {
+    console.error('Server ID or Channel ID not found.', discordRequest);
+  }
+
+  return { serverId, serverName, username };
 };
 
 export const fetchServerName = async (botToken: string, serverId: string) => {
@@ -189,23 +224,49 @@ export const fetchServerName = async (botToken: string, serverId: string) => {
     .then(server => (server as { name: string }).name);
 };
 
-export const ID_CHANNEL_COMMAND = {
-  name: 'channel',
-  description: 'Select this channel for the bot to listen to.'
-};
-
 export const INVITE_COMMAND = {
   name: 'invite',
   description: 'Get the invite link for the bot.'
 };
 
-export const REFRESH_COMMAND = {
-  name: 'refresh',
-  description: "Refresh the bot's cache."
+export const SELF_ID_COMMAND = {
+  name: 'id',
+  description: 'Self register your ID and IGN.',
+
+  options: [
+    {
+      name: 'ign',
+      description: 'In-game-name',
+      type: 3,
+      required: true
+    },
+    {
+      name: 'friendcode',
+      description: '16 digit friendcode, without dashes or spaces',
+      min_length: 16,
+      max_length: 16,
+      type: 3,
+      required: true
+    },
+    {
+      name: 'main',
+      description: 'Is this account your main?',
+      type: 5,
+      required: true
+    },
+    {
+      name: 'screenshot',
+      description:
+        'Screenshot of your in-game profile, with your ID/IGN visible',
+      type: 11,
+      required: true
+    }
+  ]
 };
 
-export const botCommands = [
-  ID_CHANNEL_COMMAND,
-  INVITE_COMMAND,
-  REFRESH_COMMAND
-];
+export const LIST_ACCOUNTS = {
+  name: 'list',
+  description: 'List all registered accounts.'
+};
+
+export const botCommands = [INVITE_COMMAND, LIST_ACCOUNTS, SELF_ID_COMMAND];

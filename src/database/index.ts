@@ -9,17 +9,21 @@ export type AllowedUser = {
   ign: string;
   discord_username: string;
   discord_server_id: string;
+  screenshot_id: string;
+  is_main: boolean;
+  created_at: string;
+  modified_at: string;
 };
 
 export type DiscordServer = {
   id: string;
   name: string;
-  roles_channel_id: string;
 };
 
 export type DiscordAssignedRole = {
   id: string;
   role_name: string;
+  role_value: number;
   username: string;
   server_id: string;
 };
@@ -106,6 +110,54 @@ export const getAllowedUsers = async (
   return allowed_users;
 };
 
+export const getAllowedUsersByUsernameAndServer = async (
+  db: D1Database,
+  discordUsername: string,
+  discordServerId: string,
+  isMain?: boolean
+): Promise<AllowedUser[]> => {
+  let statement: D1PreparedStatement;
+  if (isMain === undefined) {
+    statement = db
+      .prepare(
+        'SELECT * FROM allowed_users WHERE discord_username = ? AND discord_server_id = ?'
+      )
+      .bind(discordUsername, discordServerId);
+  } else {
+    statement = db
+      .prepare(
+        'SELECT * FROM allowed_users WHERE discord_username = ? AND discord_server_id = ? AND is_main = ?'
+      )
+      .bind(discordUsername, discordServerId, isMain);
+  }
+
+  const query = await statement.run();
+  if (query.error || !query.success) {
+    throw new Error('Failed to fetch allowed_users.');
+  }
+
+  return query.results as AllowedUser[];
+};
+
+export const getAllowedUsersByFriendcodeAndServer = async (
+  db: D1Database,
+  friendcode: string,
+  discordServerId: string
+): Promise<AllowedUser[]> => {
+  const statement = db
+    .prepare(
+      'SELECT * FROM allowed_users WHERE friendcode = ? AND discord_server_id = ?'
+    )
+    .bind(friendcode, discordServerId);
+
+  const query = await statement.run();
+  if (query.error || !query.success) {
+    throw new Error('Failed to fetch allowed_users.');
+  }
+
+  return query.results as AllowedUser[];
+};
+
 export const getDiscordServers = async (
   db: D1Database
 ): Promise<DiscordServer[]> => {
@@ -145,6 +197,27 @@ const getDiscordRolesByServer = async (db: D1Database, serverId: string) => {
   return query.results as DiscordAssignedRole[];
 };
 
+export const getMaximumRoleByUsernameAndServer = async (
+  db: D1Database,
+  username: string,
+  serverId: string
+): Promise<DiscordAssignedRole | null> => {
+  const query = await db
+    .prepare(
+      `
+      SELECT * FROM discord_roles
+      WHERE username = ? AND server_id = ?
+      ORDER BY role_value DESC LIMIT 1`
+    )
+    .bind(username, serverId)
+    .run();
+  if (query.error || !query.success) {
+    throw new Error('Failed to fetch discord_roles.');
+  }
+
+  return (query.results[0] ?? null) as DiscordAssignedRole | null;
+};
+
 export const updateAllowedUsers = async (
   db: D1Database,
   entries: AllowedUser[],
@@ -174,6 +247,29 @@ export const updateAllowedUsers = async (
   }
 };
 
+export const insertAllowedUser = async (
+  db: D1Database,
+  entry: AllowedUser
+): Promise<void> => {
+  const statement = db
+    .prepare(
+      `INSERT INTO allowed_users
+    (friendcode, ign, discord_username, discord_server_id, screenshot_id, is_main, created_at, modified_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT (friendcode, discord_server_id) DO NOTHING`
+    )
+    .bind(
+      entry.friendcode,
+      entry.ign,
+      entry.discord_username,
+      entry.discord_server_id,
+      entry.screenshot_id,
+      entry.is_main,
+      entry.created_at,
+      entry.modified_at
+    );
+  await statement.run();
+};
+
 export const updateAssignedRoles = async (
   db: D1Database,
   roles: DiscordAssignedRole[],
@@ -187,10 +283,18 @@ export const updateAssignedRoles = async (
     const statement = db
       .prepare(
         `INSERT INTO discord_roles
-      (role_id, role_name, username, server_id) VALUES (?, ?, ?, ?)
-      ON CONFLICT (role_id, server_id) DO NOTHING`
+      (role_id, role_name, role_value, username, server_id, created_at, modified_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (role_id, server_id) DO UPDATE SET modified_at = CURRENT_TIMESTAMP`
       )
-      .bind(role.id, role.role_name, role.username, role.server_id);
+      .bind(
+        role.id,
+        role.role_name,
+        role.role_value,
+        role.username,
+        role.server_id,
+        new Date().toISOString(),
+        new Date().toISOString()
+      );
     await statement.run();
   }
 };
@@ -201,14 +305,9 @@ export const addDiscordServer = async (
 ): Promise<void> => {
   const statement = db
     .prepare(
-      'INSERT INTO discord_servers (id, name, roles_channel_id) VALUES (?, ?, ?) ON CONFLICT (id) DO UPDATE SET roles_channel_id = ?'
+      'INSERT INTO discord_servers (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING'
     )
-    .bind(
-      discord_server.id,
-      discord_server.name,
-      discord_server.roles_channel_id,
-      discord_server.roles_channel_id
-    );
+    .bind(discord_server.id, discord_server.name);
   const query = await statement.run();
   if (!query.success) {
     throw new Error('Failed to add discord server.');
