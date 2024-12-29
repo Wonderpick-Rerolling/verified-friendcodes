@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS allowed_users (
     PRIMARY KEY (friendcode, discord_server_id)
 );
 
+DROP TABLE IF EXISTS discord_servers;
 CREATE TABLE IF NOT EXISTS discord_servers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL
